@@ -1,0 +1,6 @@
+@echo off
+echo Starting Backend...
+start "Backend Server" cmd /k "cd backend && py app.py"
+echo Starting Frontend...
+start "Frontend Client" cmd /k "cd frontend && npm run dev"
+echo Application started! Focus on the new terminal windows.

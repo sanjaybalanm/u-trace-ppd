@@ -10,6 +10,59 @@ CORS(app) # Enable Cross-Origin Resource Sharing for frontend
 # Initialize predictor
 predictor = PPDPredictor()
 
+import sqlite3
+from werkzeug.security import generate_password_hash, check_password_hash
+
+def init_db():
+    conn = sqlite3.connect('users.db')
+    c = conn.cursor()
+    c.execute('''CREATE TABLE IF NOT EXISTS users
+                 (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT UNIQUE, password TEXT)''')
+    conn.commit()
+    conn.close()
+
+init_db()
+
+@app.route('/signup', methods=['POST'])
+def signup():
+    data = request.json
+    username = data.get('username')
+    password = data.get('password')
+
+    if not username or not password:
+        return jsonify({"error": "Username and password required"}), 400
+
+    hashed_password = generate_password_hash(password)
+
+    try:
+        conn = sqlite3.connect('users.db')
+        c = conn.cursor()
+        c.execute("INSERT INTO users (username, password) VALUES (?, ?)", (username, hashed_password))
+        conn.commit()
+        conn.close()
+        return jsonify({"message": "User created successfully"}), 201
+    except sqlite3.IntegrityError:
+        return jsonify({"error": "Username already exists"}), 400
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/login', methods=['POST'])
+def login():
+    data = request.json
+    username = data.get('username')
+    password = data.get('password')
+
+    conn = sqlite3.connect('users.db')
+    c = conn.cursor()
+    c.execute("SELECT password FROM users WHERE username=?", (username,))
+    user = c.fetchone()
+    conn.close()
+
+    if user and check_password_hash(user[0], password):
+        return jsonify({"message": "Login successful"}), 200
+    else:
+        return jsonify({"error": "Invalid credentials"}), 401
+
 @app.route('/predict', methods=['POST'])
 def predict():
     """
