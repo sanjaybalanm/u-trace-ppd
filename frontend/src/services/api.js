@@ -1,4 +1,4 @@
-const API_BASE_URL = 'http://127.0.0.1:5000';
+const API_BASE_URL = 'http://127.0.0.1:5001';
 
 // Login API
 export const login = async (credentials) => {
@@ -11,12 +11,20 @@ export const login = async (credentials) => {
             body: JSON.stringify(credentials),
         });
 
-        if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.error || 'Login failed');
+        const text = await response.text();
+        let data;
+        try {
+            data = JSON.parse(text);
+        } catch (e) {
+            console.error("Failed to parse JSON response:", text);
+            throw new Error(`Server Error: ${response.status} ${response.statusText}. Check console for details.`);
         }
 
-        return await response.json();
+        if (!response.ok) {
+            throw new Error(data.error || 'Login failed');
+        }
+
+        return data;
     } catch (error) {
         console.error("Login Error:", error);
         throw error;
