@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { predictRisk } from '../services/api';
+import { predictRiskWithCreatinine } from '../services/api';
 import ResultCard from '../components/ResultCard';
+import { useNavigate } from 'react-router-dom';
 
-const PredictionForm = () => {
+const PredictionWithCreatinine = () => {
     const navigate = useNavigate();
     const [formData, setFormData] = useState({
         age: '',
@@ -13,7 +13,8 @@ const PredictionForm = () => {
         outdoor_hours: '',
         distance_to_main_road: '',
         two_wheeler_use: false,
-        smoker: false
+        smoker: false,
+        creatinine: ''
     });
 
     const [result, setResult] = useState(null);
@@ -35,14 +36,14 @@ const PredictionForm = () => {
         setResult(null);
 
         // Basic validation
-        if (!formData.age || !formData.bmi) {
+        if (!formData.age || !formData.bmi || !formData.creatinine) {
             setError("Please fill in all required fields.");
             setLoading(false);
             return;
         }
 
         try {
-            const data = await predictRisk(formData);
+            const data = await predictRiskWithCreatinine(formData);
             setResult(data);
         } catch (err) {
             setError("Failed to get prediction. Ensure backend is running.");
@@ -54,18 +55,18 @@ const PredictionForm = () => {
     return (
         <div className="container" style={{ maxWidth: '100%', padding: '1rem' }}>
             <div className="glass-card" style={{ maxWidth: '1400px', margin: '0 auto' }}>
-                <h1>PPD Risk Predictor</h1>
+                <h1>PPD Risk Predictor (Creatinine Mode)</h1>
 
                 <div style={{ display: 'flex', gap: '1rem', marginBottom: '2rem', justifyContent: 'center' }}>
                     <button
-                        disabled
-                        style={{ background: 'var(--primary)', color: 'white', cursor: 'default' }}
+                        onClick={() => navigate('/predict')}
+                        style={{ background: 'transparent', border: '1px solid var(--primary)', color: 'var(--primary)' }}
                     >
                         Predict Without Test
                     </button>
                     <button
-                        onClick={() => navigate('/predict-with-creatinine')}
-                        style={{ background: 'transparent', border: '1px solid var(--primary)', color: 'var(--primary)' }}
+                        disabled
+                        style={{ background: 'var(--primary)', color: 'white', cursor: 'default' }}
                     >
                         Predict With Creatinine Test
                     </button>
@@ -110,7 +111,7 @@ const PredictionForm = () => {
                         </div>
                     </div>
 
-                    {/* Row 2: Occupation, Outdoor Hours, Distance */}
+                    {/* Row 2: Occupation, Outdoor Hours, Creatinine */}
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem' }}>
                         <div className="form-group">
                             <label>Occupation</label>
@@ -139,15 +140,30 @@ const PredictionForm = () => {
                         </div>
 
                         <div className="form-group">
-                            <label>Distance to Main Road (Meters)</label>
+                            <label>Urine Creatinine (mg/dL)</label>
                             <input
                                 type="number"
-                                name="distance_to_main_road"
-                                value={formData.distance_to_main_road}
+                                name="creatinine"
+                                value={formData.creatinine}
                                 onChange={handleChange}
-                                placeholder="Meters"
+                                placeholder="Range: 0.5 - 2.5"
+                                step="0.1"
+                                min="0"
+                                required
                             />
                         </div>
+                    </div>
+
+                    {/* Row 3: Distance (full width) */}
+                    <div className="form-group">
+                        <label>Distance to Main Road (Meters)</label>
+                        <input
+                            type="number"
+                            name="distance_to_main_road"
+                            value={formData.distance_to_main_road}
+                            onChange={handleChange}
+                            placeholder="Meters"
+                        />
                     </div>
 
                     <div style={{ display: 'flex', gap: '2rem', marginBottom: '1.5rem' }}>
@@ -181,7 +197,7 @@ const PredictionForm = () => {
                     {error && <div style={{ color: 'var(--danger)', marginBottom: '1rem', textAlign: 'center' }}>{error}</div>}
 
                     <button type="submit" disabled={loading}>
-                        {loading ? 'Analyzing...' : 'Predict Exposure Risk'}
+                        {loading ? 'Analyzing...' : 'Predict (Refined with Creatinine)'}
                     </button>
                 </form>
 
@@ -191,4 +207,4 @@ const PredictionForm = () => {
     );
 };
 
-export default PredictionForm;
+export default PredictionWithCreatinine;

@@ -78,3 +78,28 @@ export const predictRisk = async (data) => {
         throw error;
     }
 };
+
+// Predict With Creatinine API
+export const predictRiskWithCreatinine = async (data) => {
+    try {
+        console.log("Sending data to backend (with creatinine):", data); // Debug log
+
+        const response = await fetch(`${API_BASE_URL}/predict-with-creatinine`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(data),
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'Prediction request failed');
+        }
+
+        return await response.json();
+    } catch (error) {
+        console.error("API Error:", error);
+        throw error;
+    }
+};
