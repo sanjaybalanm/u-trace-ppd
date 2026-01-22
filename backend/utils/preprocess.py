@@ -21,7 +21,8 @@ def preprocess_input(data):
             "outdoor_hours": float(data.get("outdoor_hours", 0.0)),
             "distance_to_main_road": float(data.get("distance_to_main_road", 0.0)),
             "two_wheeler_use": bool(data.get("two_wheeler_use", False)),
-            "smoker": bool(data.get("smoker", False))
+            "smoker": bool(data.get("smoker", False)),
+            "creatinine": float(data.get("creatinine", 1.0))  # Add creatinine support
         }
         
         return processed_data

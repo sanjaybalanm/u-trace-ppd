@@ -37,11 +37,16 @@ class CreatininePPDPredictor:
         creatinine_status = self._analyze_creatinine(creatinine)
         
         # 5. Reclassify Risk Level based on Normalized Value
-        if normalized_ppd > 1.5:
+        # NOTE: Higher normalized_ppd = Higher Risk
+        # Lower creatinine → Higher normalized PPD → Higher Risk
+        # Higher creatinine → Lower normalized PPD → Lower Risk
+        
+        # Adjusted thresholds for better sensitivity:
+        if normalized_ppd > 1.0:  # Lowered from 1.5
             risk_level = "HIGH"
             confidence = "HIGH"
             risk_description = "Significantly elevated PPD exposure detected. Immediate protective measures recommended."
-        elif normalized_ppd > 0.8:
+        elif normalized_ppd > 0.5:  # Lowered from 0.8
             risk_level = "MEDIUM"
             confidence = "MEDIUM"
             risk_description = "Moderate PPD exposure. Regular monitoring and preventive care advised."
@@ -66,7 +71,7 @@ class CreatininePPDPredictor:
             "description": creatinine_status['description']
         })
         
-        # 8. Compile Comprehensive Response
+        # 8. Compile Comprehensive Response with Threshold Information
         response = {
             "mode": "WITH_CREATININE",
             "predicted_risk": risk_level,
@@ -81,7 +86,13 @@ class CreatininePPDPredictor:
             "factor_details": factor_details,
             "total_factors_analyzed": details.get("total_factors_analyzed", 5) + 1,
             "health_recommendations": recommendations,
-            "analysis_date": "Lab-Free Prediction Model"
+            "analysis_date": "Lab-Free Prediction Model",
+            "threshold_info": {
+                "high_threshold": 1.0,
+                "medium_threshold": 0.5,
+                "current_value": round(normalized_ppd, 2),
+                "explanation": "Lower creatinine increases normalized PPD (higher risk). Higher creatinine decreases normalized PPD (lower risk)."
+            }
         }
         
         return response
