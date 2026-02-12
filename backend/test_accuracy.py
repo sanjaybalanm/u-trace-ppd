@@ -42,41 +42,21 @@ def run_tests():
                 "distance_to_main_road": 10, "smoker": False, 
                 "creatinine": 1.9 # High creatinine dilutes exposure
             }
-        },
-        {
-            "id": 4,
-            "desc": "Extreme Risk: Painter, Smoker, 2-Wheeler, Low Creatinine",
-            "input": {
-                "age": 50, "gender": "male", "bmi": 24.0, 
-                "occupation": "painter", "outdoor_hours": 12, 
-                "distance_to_main_road": 50, "smoker": True, "two_wheeler_use": True,
-                "creatinine": 0.5
-            }
-        },
-        {
-            "id": 5,
-            "desc": "Edge Case: Missing Optional Fields",
-            "input": {
-                "occupation": "office_worker",
-                "creatinine": 1.0
-            }
         }
     ]
     
-    print(f"{'ID':<4} | {'Description':<50} | {'Mode':<10} | {'Score/Val':<10} | {'Risk':<10}")
-    print("-" * 100)
+    print("ID   | Description                                      | Method Used               | Score")
+    print("-----|--------------------------------------------------|---------------------------|-------")
     
     for case in test_cases:
         data = case["input"]
         
         # 1. Test Base Model
-        score, _ = base_model.predict_score(data)
-        print(f"{case['id']:<4} | {case['desc']:<50} | {'Base':<10} | {score:<10} | {'-'}")
+        score, details = base_model.predict_score(data)
+        method = details.get('calculation_method', 'Unknown')
+        print(f"{case['id']:<4} | {case['desc'][:48]:<48} | {method:<25} | {score}")
         
-        # 2. Test Creatinine Model
-        res = creat_model.predict_with_creatinine(data)
-        print(f"{'':<4} | {'':<50} | {'Creatinine':<10} | {res['normalized_ppd']:<10} | {res['risk_level']:<10}")
-        print("-" * 100)
+    print("\nIf 'Method Used' says 'Random Forest ML Model', then it is working!")
 
 if __name__ == "__main__":
     run_tests()

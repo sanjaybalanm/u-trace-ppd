@@ -1,9 +1,15 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
 from utils.preprocess import preprocess_input
+from utils.report_generator import generate_pdf_report
 from model.predictor import PPDPredictor
 from model.risk_classifier import classify_risk
 from model.creatinine_predictor import CreatininePPDPredictor
+import sqlite3
+import json
+from datetime import datetime
+from werkzeug.security import generate_password_hash, check_password_hash
+import io
 
 app = Flask(__name__)
 CORS(app) # Enable Cross-Origin Resource Sharing for frontend
@@ -12,16 +18,24 @@ CORS(app) # Enable Cross-Origin Resource Sharing for frontend
 predictor = PPDPredictor()
 creatinine_predictor = CreatininePPDPredictor()
 
-import sqlite3
-from werkzeug.security import generate_password_hash, check_password_hash
-
 def init_db():
     conn = None
     try:
         conn = sqlite3.connect('users.db')
         c = conn.cursor()
+        # Users Table
         c.execute('''CREATE TABLE IF NOT EXISTS users
                      (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT UNIQUE, password TEXT)''')
+        
+        # Predictions History Table
+        c.execute('''CREATE TABLE IF NOT EXISTS predictions
+                     (id INTEGER PRIMARY KEY AUTOINCREMENT, 
+                      user_id INTEGER, 
+                      date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                      risk_level TEXT,
+                      score REAL,
+                      details TEXT)''') # details stored as JSON string
+                      
         conn.commit()
     except Exception as e:
         print(f"Database initialization error: {e}")
@@ -30,6 +44,20 @@ def init_db():
             conn.close()
 
 init_db()
+
+def save_prediction(user_id, risk_level, score, details):
+    """Helper to save prediction to DB"""
+    conn = None
+    try:
+        conn = sqlite3.connect('users.db')
+        c = conn.cursor()
+        c.execute("INSERT INTO predictions (user_id, risk_level, score, details) VALUES (?, ?, ?, ?)",
+                  (user_id, risk_level, score, json.dumps(details)))
+        conn.commit()
+    except Exception as e:
+        print(f"Error saving prediction: {e}")
+    finally:
+        if conn: conn.close()
 
 @app.route('/signup', methods=['POST'])
 def signup():
@@ -68,7 +96,7 @@ def login():
     try:
         conn = sqlite3.connect('users.db')
         c = conn.cursor()
-        c.execute("SELECT password FROM users WHERE username=?", (username,))
+        c.execute("SELECT id, password FROM users WHERE username=?", (username,))
         user = c.fetchone()
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -76,8 +104,9 @@ def login():
         if conn:
             conn.close()
 
-    if user and check_password_hash(user[0], password):
-        return jsonify({"message": "Login successful"}), 200
+    if user and check_password_hash(user[1], password):
+        # Return user ID so frontend can send it back for history tracking
+        return jsonify({"message": "Login successful", "user_id": user[0]}), 200
     else:
         return jsonify({"error": "Invalid credentials"}), 401
 
@@ -113,6 +142,10 @@ def predict():
             "mode": "STANDARD"
         }
         
+        # 5. Save History (if user_id provided)
+        user_id = data.get('user_id', 1) # Default to 1 for demo if missing
+        save_prediction(user_id, risk_level, exposure_score, response)
+        
         return jsonify(response), 200
 
     except Exception as e:
@@ -136,8 +169,67 @@ def predict_with_creatinine():
         # 2. Run Prediction Model
         result = creatinine_predictor.predict_with_creatinine(processed_data)
         
+        # 3. Save History
+        user_id = data.get('user_id', 1) 
+        save_prediction(user_id, result['predicted_risk'], result['normalized_ppd'], result)
+
         return jsonify(result), 200
 
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/history', methods=['GET'])
+def get_history():
+    """
+    Get prediction history for a specific user.
+    Query param: user_id
+    """
+    user_id = request.args.get('user_id')
+    if not user_id:
+        return jsonify({"error": "User ID required"}), 400
+        
+    conn = None
+    try:
+        conn = sqlite3.connect('users.db')
+        conn.row_factory = sqlite3.Row
+        c = conn.cursor()
+        # Get last 20 predictions
+        c.execute("SELECT * FROM predictions WHERE user_id=? ORDER BY date DESC LIMIT 20", (user_id,))
+        rows = c.fetchall()
+        
+        history = []
+        for row in rows:
+            history.append({
+                "id": row['id'],
+                "date": row['date'],
+                "risk_level": row['risk_level'],
+                "score": row['score'],
+                "details": json.loads(row['details']) if row['details'] else {}
+            })
+            
+        return jsonify(history), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    finally:
+        if conn: conn.close()
+
+@app.route('/download-report', methods=['POST'])
+def download_report():
+    """
+    Generate PDF report from prediction data.
+    """
+    data = request.json
+    user_name = data.get('user_name', 'Patient')
+    risk_data = data.get('risk_data', {})
+    
+    try:
+        pdf_bytes = generate_pdf_report(user_name, risk_data)
+        return send_file(
+            io.BytesIO(pdf_bytes),
+            mimetype='application/pdf',
+            as_attachment=True,
+            download_name=f'ppd_report_{datetime.now().strftime("%Y%m%d")}.pdf'
+        )
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 

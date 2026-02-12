@@ -42,7 +42,9 @@ const PredictionForm = () => {
         }
 
         try {
-            const data = await predictRisk(formData);
+            const userId = localStorage.getItem('user_id');
+            const dataToSubmit = { ...formData, user_id: userId ? parseInt(userId) : null };
+            const data = await predictRisk(dataToSubmit);
             setResult(data);
         } catch (err) {
             setError("Failed to get prediction. Ensure backend is running.");
@@ -54,6 +56,14 @@ const PredictionForm = () => {
     return (
         <div className="container" style={{ maxWidth: '100%', padding: '1rem' }}>
             <div className="glass-card" style={{ maxWidth: '1400px', margin: '0 auto' }}>
+                <div style={{ marginBottom: '1rem' }}>
+                    <button
+                        onClick={() => navigate('/dashboard')}
+                        style={{ background: 'transparent', border: 'none', color: '#888', cursor: 'pointer', padding: 0, fontSize: '0.9rem' }}
+                    >
+                        ← Back to Dashboard
+                    </button>
+                </div>
                 <h1>PPD Risk Predictor</h1>
 
                 <div style={{ display: 'flex', gap: '1rem', marginBottom: '2rem', justifyContent: 'center' }}>

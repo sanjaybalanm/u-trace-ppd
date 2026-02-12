@@ -11,7 +11,10 @@ const Login = () => {
     const handleSubmit = async (e) => {
         e.preventDefault();
         try {
-            await login({ username, password });
+            const data = await login({ username, password });
+            if (data.user_id) {
+                localStorage.setItem('user_id', data.user_id);
+            }
             navigate('/dashboard');
         } catch (err) {
             setError(err.message || 'Login failed');
