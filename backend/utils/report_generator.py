@@ -73,15 +73,17 @@ def generate_pdf_report(user_name, risk_data):
     
     details = risk_data.get("factor_details", [])
     if details:
-        table_data = [["Factor", "Contribution", "Status"]]
+        # Added "Value" column
+        table_data = [["Factor", "Value", "Contribution", "Status"]]
         for item in details:
-            # Clean up value extraction
             factor_name = item.get("name", "Unknown")
+            value = str(item.get("value", "N/A")) # Ensure it's a string
             contribution = f"{item.get('contribution', 0)}%"
             status = item.get("risk_level", "Normal")
-            table_data.append([factor_name, contribution, status])
+            table_data.append([factor_name, value, contribution, status])
             
-        t_factors = Table(table_data, colWidths=[3*inch, 1.5*inch, 1.5*inch])
+        # Adjusted widths for 4 columns
+        t_factors = Table(table_data, colWidths=[2.5*inch, 2*inch, 1*inch, 1.5*inch])
         t_factors.setStyle(TableStyle([
             ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#34495E")),
             ('TEXTCOLOR', (0,0), (-1,0), colors.whitesmoke),
@@ -89,7 +91,9 @@ def generate_pdf_report(user_name, risk_data):
             ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
             ('BOTTOMPADDING', (0,0), (-1,0), 12),
             ('BACKGROUND', (0,1), (-1,-1), colors.HexColor("#ECF0F1")),
-            ('GRID', (0,0), (-1,-1), 1, colors.white)
+            ('GRID', (0,0), (-1,-1), 1, colors.white),
+            # Align values to left/center
+            ('ALIGN', (0,1), (1,-1), 'CENTER'),
         ]))
         story.append(t_factors)
     

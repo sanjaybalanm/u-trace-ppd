@@ -7,8 +7,9 @@ const Dashboard = () => {
     const [history, setHistory] = useState([]);
     const [loading, setLoading] = useState(true);
 
-    // Get User ID from LocalStorage
+    // Get User ID and Name from LocalStorage
     const USER_ID = localStorage.getItem('user_id');
+    const USER_NAME = localStorage.getItem('username') || 'Patient'; // Fallback
 
     useEffect(() => {
         if (!USER_ID) {
@@ -39,7 +40,7 @@ const Dashboard = () => {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    user_name: 'Sanjay Balan', // Replace with dynamic name if avail
+                    user_name: USER_NAME,
                     risk_data: {
                         risk_level: item.risk_level,
                         exposure_score: item.score,

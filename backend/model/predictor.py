@@ -5,24 +5,32 @@ import os
 
 class PPDPredictor:
     """
-    Hybrid Predictor:
-    - Uses 'ppd_risk_model.pkl' (Random Forest) for the core Risk Score.
-    - Uses Heuristic Rules for the 'Explanation' (Factor Details) since the model is a black-box.
+    Hybrid Predictor (v2):
+    - Uses 'ppd_risk_model_v2.pkl' (Random Forest with Clinical Features).
+    - Uses Heuristic Rules for the 'Explanation'.
     """
     
     def __init__(self):
-        # Try to load the trained ML model
-        self.model = None
-        self.model_path = os.path.join(os.path.dirname(__file__), 'ppd_risk_model.pkl')
+        # Path setup
+        base_dir = os.path.dirname(__file__)
+        self.model_path = os.path.join(base_dir, 'ppd_risk_model_v2.pkl')
+        self.enc_gender_path = os.path.join(base_dir, 'encoder_gender_v2.pkl')
+        self.enc_occ_path = os.path.join(base_dir, 'encoder_occupation_v2.pkl')
         
-        if os.path.exists(self.model_path):
-            try:
+        self.model = None
+        self.le_gender = None
+        self.le_occ = None
+        
+        try:
+            if os.path.exists(self.model_path):
                 self.model = joblib.load(self.model_path)
-                print(f"✅ ML Model loaded from: {self.model_path}")
-            except Exception as e:
-                print(f"⚠️ Failed to load ML Model: {e}")
-        else:
-            print(f"⚠️ Model file not found at {self.model_path}. Using fallback rules.")
+                self.le_gender = joblib.load(self.enc_gender_path)
+                self.le_occ = joblib.load(self.enc_occ_path)
+                print(f"✅ ML Model v2 loaded successfully.")
+            else:
+                print(f"⚠️ Model v2 not found at {self.model_path}. Using fallback rules.")
+        except Exception as e:
+            print(f"⚠️ Failed to load ML Model v2: {e}")
 
         # Weights for explanation generation (fallback & UI text)
         self.occupation_weights = {
@@ -37,7 +45,7 @@ class PPDPredictor:
         
     def predict_score(self, data):
         """
-        Calculates exposure score using ML Model (if available) or Rules.
+        Calculates exposure score using ML Model v2.
         """
         score = 0.0
         factors = []
@@ -46,13 +54,11 @@ class PPDPredictor:
         # ------------------------------------------------------------
         # 1. GENERATE EXPLANATIONS (Rule-Based for UI Clarity)
         # ------------------------------------------------------------
-        # We process the rules primarily to generate the text explanations
-        # that the frontend needs. The final SCORE will come from the ML model.
         
         # [Occupation]
         occupation = data.get("occupation", "other")
-        occ_score = self.occupation_weights.get(occupation, 0.1)
-        score += occ_score # Accumulate for fallback score
+        occ_score = self.occupation_weights.get(occupation.lower(), 0.1)
+        score += occ_score 
         
         occupation_labels = {
             "tyre_worker": "Tyre Manufacturing Worker",
@@ -61,6 +67,9 @@ class PPDPredictor:
             "driver": "Professional Driver",
             "student": "Student",
             "office_worker": "Office Worker",
+            "doctor": "Healthcare Professional",
+            "farmer": "Agricultural Worker",
+            "teacher": "Teacher",
             "other": "Other Occupation"
         }
         
@@ -75,109 +84,155 @@ class PPDPredictor:
             "description": f"Your occupation contributes {occ_percentage}% to overall exposure risk."
         })
         
-        if occ_score > 0.2:
-            factors.append("High Risk Occupation")
-            
-        # [Outdoor]
-        outdoor_hours = data.get("outdoor_hours", 0)
-        outdoor_score = min(outdoor_hours / 24.0, 0.2)
-        score += outdoor_score
-        
-        outdoor_risk = "High" if outdoor_hours > 8 else "Medium" if outdoor_hours > 4 else "Low"
-        factor_details.append({
-            "name": "Outdoor Duration",
-            "value": f"{outdoor_hours} hours/day",
-            "contribution": round(outdoor_score * 100, 1),
-            "risk_level": outdoor_risk,
-            "description": f"Spending {outdoor_hours} hours outdoors daily increases exposure."
-        })
-        if outdoor_hours > 6: factors.append("Extended Outdoor Duration")
-            
-        # [Traffic]
-        distance = data.get("distance_to_main_road", 100)
-        dist_score = max(0, (200 - distance) / 1000.0) 
-        score += dist_score
-        
-        traffic_risk = "High" if distance < 50 else "Medium" if distance < 150 else "Low"
-        factor_details.append({
-            "name": "Traffic Proximity",
-            "value": f"{distance} meters",
-            "contribution": round(dist_score * 100, 1),
-            "risk_level": traffic_risk,
-            "description": f"Living {distance}m from main road contributes to exposure."
-        })
-        if distance < 50: factors.append("Proximity to Traffic")
-            
-        # [Smoker]
-        smoker = data.get("smoker", False)
-        if isinstance(smoker, str): smoker = (smoker.lower() == 'true') # strengthen boolean parsing
-        smoking_score = 0.15 if smoker else 0.0
-        score += smoking_score
-        
-        factor_details.append({
-            "name": "Smoking Status",
-            "value": "Yes - Active Smoker" if smoker else "No",
-            "contribution": round(smoking_score * 100, 1),
-            "risk_level": "High" if smoker else "Low",
-            "description": "Smoking significantly increases PPD absorption." if smoker else "Non-smoking reduces risk."
-        })
-        if smoker: factors.append("Smoking History")
-            
-        # [Two Wheeler]
-        two_wheeler = data.get("two_wheeler_use", False)
-        if isinstance(two_wheeler, str): two_wheeler = (two_wheeler.lower() == 'true')
-        vehicle_score = 0.1 if two_wheeler else 0.0
-        score += vehicle_score
-        
-        factor_details.append({
-            "name": "Two-Wheeler Usage",
-            "value": "Regular User" if two_wheeler else "No",
-            "contribution": round(vehicle_score * 100, 1),
-            "risk_level": "Medium" if two_wheeler else "Low",
-            "description": "Regular two-wheeler use increases direct exposure." if two_wheeler else "No additional vehicular exposure."
-        })
-        if two_wheeler: factors.append("Frequent Two-Wheeler Use")
+        # [Clinical Factors - Detailed Analysis]
+        ige = float(data.get("ige_level") or 0)
+        eos = float(data.get("eosinophil_percentage") or 0)
+        fev1 = float(data.get("fev1") or 0)
+        patch = int(data.get("patch_test", 0))
 
-        # Fallback Rule Calculation (Clamped)
-        rule_based_score = min(max(score, 0.0), 1.0)
+        if ige > 0:
+            risk = "High" if ige > 300 else "Medium" if ige > 100 else "Low"
+            factors.append(f"IgE Level: {ige} IU/mL")
+            factor_details.append({
+                "name": "Serum IgE Level",
+                "value": f"{ige} IU/mL",
+                "contribution": 100 if risk == "High" else 50 if risk == "Medium" else 0,
+                "risk_level": risk,
+                "description": "High IgE indicates strong allergic sensitization." if risk == "High" else "Normal range."
+            })
+
+        if eos > 0:
+            risk = "High" if eos > 7 else "Medium" if eos > 4 else "Low"
+            factors.append(f"Eosinophils: {eos}%")
+            factor_details.append({
+                "name": "Eosinophil Count",
+                "value": f"{eos}%",
+                "contribution": 100 if risk == "High" else 50 if risk == "Medium" else 0,
+                "risk_level": risk,
+                "description": "Elevated eosinophils suggest active allergic inflammation." if risk == "High" else "Normal range."
+            })
+
+        if fev1 > 0:
+            risk = "High" if fev1 < 60 else "Medium" if fev1 < 80 else "Low"
+            factors.append(f"FEV1: {fev1}%")
+            factor_details.append({
+                "name": "Spirometry (FEV1)",
+                "value": f"{fev1}% predicted",
+                "contribution": 100 if risk == "High" else 50 if risk == "Medium" else 0,
+                "risk_level": risk,
+                "description": "Reduced lung function detected." if risk == "High" else "Lung function within normal limits."
+            })
+
+        if patch > 0:
+            risk = "High" if patch == 2 else "Medium"
+            factors.append("Positive Patch Test")
+            factor_details.append({
+                "name": "Skin Patch Test",
+                "value": "Strong Positive (++)" if patch == 2 else "Weak Positive (+)",
+                "contribution": 100 if risk == "High" else 50,
+                "risk_level": risk,
+                "description": "Direct sensitization to PPD confirmed."
+            })
 
         # ------------------------------------------------------------
-        # 2. APPLY ML MODEL (If Available)
+        # 2. APPLY ML MODEL v2 (Random Forest)
         # ------------------------------------------------------------
-        final_score = rule_based_score # Default to rules
-        
+        prediction_label = "Low" # Default
+
         if self.model:
             try:
-                # Prepare DataFrame matching training columns
-                # ['age', 'gender', 'occupation', 'outdoor_hours', 'distance_to_main_road', 'smoker', 'two_wheeler_use', 'creatinine']
+                # Prepare Input Vector
+                # Feature Order: ['Age', 'Gender', 'Occupation', 'Outdoor_Hours', 'Distance_to_Road', 
+                #                 'Smoker', 'Two_Wheeler', 'Respiratory_Symptoms', 'Skin_Allergy_History', 
+                #                 'IgE_Level', 'Eosinophil_Percentage', 'FEV1', 'Patch_Test']
                 
-                # Default creatinine to 1.0 (Average) if using Standard Mode (which lacks creatinine input)
-                creatinine_val = float(data.get("creatinine", 1.0))
+                # Handling Encoders with 'unknown' fallback
+                gender_input = data.get('gender', 'Male').title()
+                try:
+                    gender_enc = self.le_gender.transform([gender_input])[0]
+                except:
+                    gender_enc = 0 # Default
+
+                occ_input = occupation.replace('_', ' ').title()
+                # Map specific frontend values to training values if needed, or rely on training data coverage
+                # The training script used: Student, Tyre Worker, Mechanic, Painter, Driver, Office Worker, Other, Doctor, Farmer, Teacher.
+                # Frontend sends: student, tyre_worker, etc.
+                occ_map = {
+                    "student": "Student", "tyre_worker": "Tyre Worker", "mechanic": "Mechanic",
+                    "painter": "Painter", "driver": "Driver", "office_worker": "Office Worker",
+                    "other": "Other", "doctor": "Doctor", "farmer": "Farmer", "teacher": "Teacher",
+                    "construction_worker": "Other", "engineer": "Other", "sales": "Other"
+                }
+                occ_clean = occ_map.get(occupation, "Other")
                 
-                input_df = pd.DataFrame([{
-                    'age': int(data.get('age', 30)),
-                    'gender': data.get('gender', 'male'),
-                    'occupation': occupation,
-                    'outdoor_hours': int(outdoor_hours),
-                    'distance_to_main_road': int(distance),
-                    'smoker': smoker,
-                    'two_wheeler_use': two_wheeler,
-                    'creatinine': creatinine_val
+                try:
+                    occ_enc = self.le_occ.transform([occ_clean])[0]
+                except:
+                    occ_enc = self.le_occ.transform(['Other'])[0]
+
+                # Booleans
+                smoker_val = 1 if (str(data.get('smoker')).lower() == 'true') else 0
+                two_wheeler_val = 1 if (str(data.get('two_wheeler_use')).lower() == 'true') else 0
+                resp_val = 1 if (str(data.get('respiratory_symptoms')).lower() == 'true') else 0
+                allergy_val = 1 if (str(data.get('skin_allergy_history')).lower() == 'true') else 0
+                
+                # Clinical Defaults (if missing) -> Normal values
+                ige_val = float(data.get('ige_level') or 50.0) 
+                eos_val = float(data.get('eosinophil_percentage') or 2.0)
+                fev1_val = float(data.get('fev1') or 95.0)
+                patch_val = int(data.get('patch_test', 0))
+
+                input_vector = pd.DataFrame([{
+                    'Age': int(data.get('age', 30)),
+                    'Gender': gender_enc,
+                    'Occupation': occ_enc,
+                    'Outdoor_Hours': int(data.get("outdoor_hours", 0)),
+                    'Distance_to_Road': int(data.get("distance_to_main_road", 100)),
+                    'Smoker': smoker_val,
+                    'Two_Wheeler': two_wheeler_val,
+                    'Respiratory_Symptoms': resp_val,
+                    'Skin_Allergy_History': allergy_val,
+                    'IgE_Level': ige_val,
+                    'Eosinophil_Percentage': eos_val,
+                    'FEV1': fev1_val,
+                    'Patch_Test': patch_val
                 }])
                 
                 # Predict
-                prediction = self.model.predict(input_df)[0]
+                prediction_label = self.model.predict(input_vector)[0]
+                # Probability for 'High' or 'Medium' to create a numeric score?
+                # The model outputs 'High', 'Medium', 'Low'.
+                # We need a numeric score 0.0 - 1.0 for the UI.
                 
-                # ML models can sometimes predict slightly outside 0-1 range due to regression, clamp it.
-                final_score = min(max(prediction, 0.0), 1.0)
+                probs = self.model.predict_proba(input_vector)[0]
+                classes = self.model.classes_ # ['High', 'Low', 'Medium'] sorted usually?
+                
+                # Map probs to a single 0-1 score
+                # 0 = Low, 0.5 = Medium, 1.0 = High
+                # Let's verify class order:
+                # usually alphabetical: High, Low, Medium
+                
+                score_map = {cls: i for i, cls in enumerate(classes)}
+                # Calculate weighted score: P(High)*1.0 + P(Medium)*0.5 + P(Low)*0.0
+                
+                high_idx = score_map.get('High')
+                med_idx = score_map.get('Medium')
+                
+                p_high = probs[high_idx] if high_idx is not None else 0
+                p_med = probs[med_idx] if med_idx is not None else 0
+                
+                final_score = (p_high * 1.0) + (p_med * 0.5)
                 
             except Exception as e:
                 print(f"⚠️ ML Prediction Error: {e}")
-                # Fallback to rule_based_score handled by initialization above
+                final_score = min(max(score, 0.0), 1.0) # Fallback to rule score
+        else:
+            final_score = min(max(score, 0.0), 1.0) # Fallback to rule score
         
         return round(final_score, 2), {
             "key_factors": factors,
             "factor_details": factor_details,
-            "total_factors_analyzed": 5,
-            "calculation_method": "Random Forest ML Model" if self.model else "Heuristic Rule System"
+            "total_factors_analyzed": 13,
+            "calculation_method": "Clinical ML Model v2" if self.model else "Heuristic Rule System",
+            "prediction_label": prediction_label
         }

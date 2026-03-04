@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useMemo } from 'react';
+
 
 const ResultCard = ({ result }) => {
     if (!result) return null;
@@ -35,6 +36,8 @@ const ResultCard = ({ result }) => {
         return '#10b981';
     };
 
+
+
     return (
         <div className="result-card" style={{ maxWidth: '900px', margin: '2rem auto' }}>
             {/* Header Section */}
@@ -66,8 +69,8 @@ const ResultCard = ({ result }) => {
                         ? 'linear-gradient(135deg, rgba(245, 158, 11, 0.2), rgba(217, 119, 6, 0.1))'
                         : 'linear-gradient(135deg, rgba(239, 68, 68, 0.2), rgba(220, 38, 38, 0.1))',
                 border: `2px solid ${predicted_risk === 'LOW' ? '#10b981'
-                        : predicted_risk === 'MEDIUM' ? '#f59e0b'
-                            : '#ef4444'
+                    : predicted_risk === 'MEDIUM' ? '#f59e0b'
+                        : '#ef4444'
                     }`,
                 boxShadow: predicted_risk === 'LOW'
                     ? '0 4px 20px rgba(16, 185, 129, 0.3)'
@@ -99,6 +102,8 @@ const ResultCard = ({ result }) => {
                             : 'High exposure risk detected. Immediate action required to reduce health risks.'}
                 </div>
             </div>
+
+
 
             {/* Scores Section */}
             <div style={{
@@ -149,107 +154,113 @@ const ResultCard = ({ result }) => {
             </div>
 
             {/* Confidence Level (Creatinine Mode) */}
-            {isCreatinineMode && confidence && (
-                <div style={{ marginBottom: '2rem', textAlign: 'center' }}>
-                    <span style={{
-                        display: 'inline-block',
-                        padding: '0.5rem 1.5rem',
-                        background: confidence === 'HIGH' ? 'rgba(52, 211, 153, 0.2)' : 'rgba(251, 191, 36, 0.2)',
-                        border: `1px solid ${confidence === 'HIGH' ? 'rgba(52, 211, 153, 0.4)' : 'rgba(251, 191, 36, 0.4)'}`,
-                        borderRadius: '20px',
-                        fontSize: '0.9rem',
-                        color: confidence === 'HIGH' ? '#a7f3d0' : '#fcd34d'
-                    }}>
-                        Confidence Level: {confidence}
-                    </span>
-                </div>
-            )}
+            {
+                isCreatinineMode && confidence && (
+                    <div style={{ marginBottom: '2rem', textAlign: 'center' }}>
+                        <span style={{
+                            display: 'inline-block',
+                            padding: '0.5rem 1.5rem',
+                            background: confidence === 'HIGH' ? 'rgba(52, 211, 153, 0.2)' : 'rgba(251, 191, 36, 0.2)',
+                            border: `1px solid ${confidence === 'HIGH' ? 'rgba(52, 211, 153, 0.4)' : 'rgba(251, 191, 36, 0.4)'}`,
+                            borderRadius: '20px',
+                            fontSize: '0.9rem',
+                            color: confidence === 'HIGH' ? '#a7f3d0' : '#fcd34d'
+                        }}>
+                            Confidence Level: {confidence}
+                        </span>
+                    </div>
+                )
+            }
 
             {/* Detailed Factor Analysis */}
-            {factor_details && factor_details.length > 0 && (
-                <div className="key-factors" style={{ marginBottom: '2rem' }}>
-                    <h3 style={{ marginBottom: '1rem', fontSize: '1.2rem' }}>
-                        Detailed Factor Analysis ({factor_details.length} factors)
-                    </h3>
-                    <div style={{ display: 'grid', gap: '1rem' }}>
-                        {factor_details.map((factor, index) => (
-                            <div key={index} style={{
-                                padding: '1rem',
-                                background: 'rgba(255,255,255,0.03)',
-                                borderRadius: '10px',
-                                border: `1px solid ${getFactorColor(factor.risk_level)}33`
-                            }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem' }}>
-                                    <div style={{ flex: 1 }}>
-                                        <div style={{ fontSize: '1rem', fontWeight: '600', color: 'var(--text-main)' }}>
-                                            {factor.name}
-                                        </div>
-                                        <div style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
-                                            {factor.value}
-                                        </div>
-                                    </div>
-                                    <div style={{ textAlign: 'right' }}>
-                                        <div style={{
-                                            fontSize: '1.2rem',
-                                            fontWeight: 'bold',
-                                            color: getFactorColor(factor.risk_level)
-                                        }}>
-                                            {factor.contribution}%
-                                        </div>
-                                        <div style={{
-                                            fontSize: '0.75rem',
-                                            color: getFactorColor(factor.risk_level),
-                                            opacity: 0.8
-                                        }}>
-                                            {factor.risk_level} Risk
-                                        </div>
-                                    </div>
-                                </div>
-                                <p style={{
-                                    margin: '0.75rem 0 0 0',
-                                    fontSize: '0.85rem',
-                                    color: '#94a3b8',
-                                    lineHeight: '1.5'
+            {
+                factor_details && factor_details.length > 0 && (
+                    <div className="key-factors" style={{ marginBottom: '2rem' }}>
+                        <h3 style={{ marginBottom: '1rem', fontSize: '1.2rem' }}>
+                            Detailed Factor Analysis ({factor_details.length} factors)
+                        </h3>
+                        <div style={{ display: 'grid', gap: '1rem' }}>
+                            {factor_details.map((factor, index) => (
+                                <div key={index} style={{
+                                    padding: '1rem',
+                                    background: 'rgba(255,255,255,0.03)',
+                                    borderRadius: '10px',
+                                    border: `1px solid ${getFactorColor(factor.risk_level)}33`
                                 }}>
-                                    {factor.description}
-                                </p>
-                            </div>
-                        ))}
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem' }}>
+                                        <div style={{ flex: 1 }}>
+                                            <div style={{ fontSize: '1rem', fontWeight: '600', color: 'var(--text-main)' }}>
+                                                {factor.name}
+                                            </div>
+                                            <div style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
+                                                {factor.value}
+                                            </div>
+                                        </div>
+                                        <div style={{ textAlign: 'right' }}>
+                                            <div style={{
+                                                fontSize: '1.2rem',
+                                                fontWeight: 'bold',
+                                                color: getFactorColor(factor.risk_level)
+                                            }}>
+                                                {factor.contribution}%
+                                            </div>
+                                            <div style={{
+                                                fontSize: '0.75rem',
+                                                color: getFactorColor(factor.risk_level),
+                                                opacity: 0.8
+                                            }}>
+                                                {factor.risk_level} Risk
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <p style={{
+                                        margin: '0.75rem 0 0 0',
+                                        fontSize: '0.85rem',
+                                        color: '#94a3b8',
+                                        lineHeight: '1.5'
+                                    }}>
+                                        {factor.description}
+                                    </p>
+                                </div>
+                            ))}
+                        </div>
                     </div>
-                </div>
-            )}
+                )
+            }
 
             {/* Health Recommendations (Creatinine Mode) */}
-            {recommendations && recommendations.length > 0 && (
-                <div style={{
-                    marginTop: '2rem',
-                    padding: '1.5rem',
-                    background: 'rgba(99, 102, 241, 0.1)',
-                    borderRadius: '12px',
-                    border: '1px solid rgba(99, 102, 241, 0.3)'
-                }}>
-                    <h3 style={{ marginBottom: '1rem', fontSize: '1.2rem', color: '#c7d2fe' }}>
-                        🏥 Personalized Health Recommendations
-                    </h3>
-                    <ul style={{
-                        margin: 0,
-                        paddingLeft: '1.5rem',
-                        listStyle: 'none'
+            {
+                recommendations && recommendations.length > 0 && (
+                    <div style={{
+                        marginTop: '2rem',
+                        padding: '1.5rem',
+                        background: 'rgba(99, 102, 241, 0.1)',
+                        borderRadius: '12px',
+                        border: '1px solid rgba(99, 102, 241, 0.3)'
                     }}>
-                        {recommendations.map((rec, index) => (
-                            <li key={index} style={{
-                                marginBottom: '0.75rem',
-                                fontSize: '0.9rem',
-                                color: 'var(--text-secondary)',
-                                lineHeight: '1.6',
-                                paddingLeft: '0.5rem'
-                            }}>
-                                {rec}
-                            </li>
-                        ))}
-                    </ul>
-                </div>
-            )}
+                        <h3 style={{ marginBottom: '1rem', fontSize: '1.2rem', color: '#c7d2fe' }}>
+                            🏥 Personalized Health Recommendations
+                        </h3>
+                        <ul style={{
+                            margin: 0,
+                            paddingLeft: '1.5rem',
+                            listStyle: 'none'
+                        }}>
+                            {recommendations.map((rec, index) => (
+                                <li key={index} style={{
+                                    marginBottom: '0.75rem',
+                                    fontSize: '0.9rem',
+                                    color: 'var(--text-secondary)',
+                                    lineHeight: '1.6',
+                                    paddingLeft: '0.5rem'
+                                }}>
+                                    {rec}
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
+                )
+            }
 
             {/* Analysis Footer */}
             <div style={{
@@ -270,7 +281,7 @@ const ResultCard = ({ result }) => {
                     </div>
                 )}
             </div>
-        </div>
+        </div >
     );
 };
 

@@ -105,8 +105,9 @@ def login():
             conn.close()
 
     if user and check_password_hash(user[1], password):
-        # Return user ID so frontend can send it back for history tracking
-        return jsonify({"message": "Login successful", "user_id": user[0]}), 200
+        # Return user ID and Username
+        # user tuple from SELECT id, password FROM users... wait, I need username in select
+        return jsonify({"message": "Login successful", "user_id": user[0], "username": username}), 200
     else:
         return jsonify({"error": "Invalid credentials"}), 401
 
@@ -232,6 +233,47 @@ def download_report():
         )
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+@app.route('/chat', methods=['POST'])
+def chat():
+    """
+    Simple AI Chatbot Endpoint.
+    Uses keyword matching to answer common PPD questions.
+    """
+    try:
+        data = request.json
+        message = data.get('message', '').lower()
+        
+        if not message:
+             return jsonify({"response": "I didn't catch that. Could you say it again?"}), 400
+
+        # Knowledge Base
+        responses = {
+            "ppd": "PPD (Paraphenylenediamine) is a chemical commonly found in hair dyes, rubber chemicals, and temporary tattoos. It can cause severe allergic reactions and skin sensitization.",
+            "risk": "Risk is calculated based on occupation, smoking habits, traffic proximity, and other factors. High risk means you have significant exposure to PPD sources.",
+            "creatinine": "Creatinine is a waste product filtered by kidneys. High levels can indicate kidney stress. In our context, we use it to normalize PPD concentration in urine.",
+            "prevent": "To prevent exposure: wear protective gloves, avoid direct skin contact with dyes/rubber, wash hands frequently, and limit time in high-traffic or industrial areas.",
+            "symptom": "Common symptoms of PPD exposure include skin irritation, redness, swelling, itching, and in severe cases, respiratory issues.",
+            "safe": "A 'Low Risk' score means your exposure is within manageable limits. However, always follow safety guidelines!",
+            "hello": "Hello! I'm your PPD Safety Assistant. Ask me about PPD risks, prevention, or your health score.",
+            "hi": "Hi there! How can I help you regarding PPD safety today?",
+            "thanks": "You're welcome! Stay safe.",
+            "bye": "Goodbye! Take care of your health."
+        }
+        
+        # Simple Keyword Matching
+        response_text = "I'm not sure about that. Try asking about 'PPD', 'Risk Factors', 'Prevention', or 'Creatinine'."
+        
+        for key, reply in responses.items():
+            if key in message:
+                response_text = reply
+                break
+                
+        return jsonify({"response": response_text}), 200
+
+    except Exception as e:
+        print(f"Chat Error: {e}")
+        return jsonify({"error": "Internal server error"}), 500
 
 if __name__ == '__main__':
     print("Starting PPD Risk Prediction Backend...")

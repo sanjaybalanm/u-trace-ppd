@@ -14,6 +14,7 @@ const Login = () => {
             const data = await login({ username, password });
             if (data.user_id) {
                 localStorage.setItem('user_id', data.user_id);
+                localStorage.setItem('username', data.username || username); // Save username
             }
             navigate('/dashboard');
         } catch (err) {

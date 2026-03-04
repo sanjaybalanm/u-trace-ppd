@@ -13,7 +13,9 @@ const PredictionForm = () => {
         outdoor_hours: '',
         distance_to_main_road: '',
         two_wheeler_use: false,
-        smoker: false
+        smoker: false,
+        respiratory_symptoms: false,
+        skin_allergy_history: false
     });
 
     const [result, setResult] = useState(null);
@@ -43,7 +45,17 @@ const PredictionForm = () => {
 
         try {
             const userId = localStorage.getItem('user_id');
-            const dataToSubmit = { ...formData, user_id: userId ? parseInt(userId) : null };
+            // If occupation is 'other', use the custom input value
+            const finalOccupation = formData.occupation === 'other' ? (formData.customOccupation || 'Other') : formData.occupation;
+
+            const dataToSubmit = {
+                ...formData,
+                occupation: finalOccupation,
+                user_id: userId ? parseInt(userId) : null
+            };
+            // Remove temp field before sending
+            delete dataToSubmit.customOccupation;
+
             const data = await predictRisk(dataToSubmit);
             setResult(data);
         } catch (err) {
@@ -124,15 +136,39 @@ const PredictionForm = () => {
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem' }}>
                         <div className="form-group">
                             <label>Occupation</label>
-                            <select name="occupation" value={formData.occupation} onChange={handleChange}>
+                            <select
+                                name="occupation"
+                                value={formData.occupation}
+                                onChange={handleChange}
+                                style={{ maxHeight: '150px', overflowY: 'auto' }} // Basic inline hint for styling, though select native handles this
+                            >
                                 <option value="student">Student</option>
                                 <option value="tyre_worker">Tyre Worker (High Risk)</option>
                                 <option value="mechanic">Mechanic</option>
                                 <option value="painter">Painter</option>
                                 <option value="driver">Driver</option>
                                 <option value="office_worker">Office Worker</option>
-                                <option value="other">Other</option>
+                                <option value="construction_worker">Construction Worker</option>
+                                <option value="factory_worker">Factory Worker</option>
+                                <option value="farmer">Farmer</option>
+                                <option value="teacher">Teacher</option>
+                                <option value="doctor">Healthcare Professional</option>
+                                <option value="engineer">Engineer</option>
+                                <option value="sales">Sales Professional</option>
+                                <option value="other">Other (Specify)</option>
                             </select>
+
+                            {formData.occupation === 'other' && (
+                                <input
+                                    type="text"
+                                    name="customOccupation"
+                                    value={formData.customOccupation || ''}
+                                    onChange={handleChange}
+                                    placeholder="Enter your occupation"
+                                    style={{ marginTop: '0.5rem', border: '1px solid var(--primary)' }}
+                                    required
+                                />
+                            )}
                         </div>
 
                         <div className="form-group">
@@ -184,6 +220,34 @@ const PredictionForm = () => {
                                     style={{ width: 'auto', marginRight: '0.5rem' }}
                                 />
                                 Smoker
+                            </label>
+                        </div>
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '2rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
+                        <div className="checkbox-group">
+                            <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', color: 'var(--text-main)' }}>
+                                <input
+                                    type="checkbox"
+                                    name="respiratory_symptoms"
+                                    checked={formData.respiratory_symptoms || false}
+                                    onChange={handleChange}
+                                    style={{ width: 'auto', marginRight: '0.5rem' }}
+                                />
+                                Respiratory Symptoms
+                            </label>
+                        </div>
+
+                        <div className="checkbox-group">
+                            <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', color: 'var(--text-main)' }}>
+                                <input
+                                    type="checkbox"
+                                    name="skin_allergy_history"
+                                    checked={formData.skin_allergy_history || false}
+                                    onChange={handleChange}
+                                    style={{ width: 'auto', marginRight: '0.5rem' }}
+                                />
+                                History of Skin Allergies
                             </label>
                         </div>
                     </div>

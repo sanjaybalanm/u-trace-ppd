@@ -14,7 +14,11 @@ const PredictionWithCreatinine = () => {
         distance_to_main_road: '',
         two_wheeler_use: false,
         smoker: false,
-        creatinine: ''
+        creatinine: '',
+        ige_level: '',
+        eosinophil_percentage: '',
+        fev1: '',
+        patch_test: '0'
     });
 
     const [result, setResult] = useState(null);
@@ -44,10 +48,21 @@ const PredictionWithCreatinine = () => {
 
         try {
             const userId = localStorage.getItem('user_id');
-            const dataToSubmit = { ...formData, user_id: userId ? parseInt(userId) : null };
+            // If occupation is 'other', use the custom input value
+            const finalOccupation = formData.occupation === 'other' ? (formData.customOccupation || 'Other') : formData.occupation;
+
+            const dataToSubmit = {
+                ...formData,
+                occupation: finalOccupation,
+                user_id: userId ? parseInt(userId) : null
+            };
+            // Remove temp field before sending
+            delete dataToSubmit.customOccupation;
+
             const data = await predictRiskWithCreatinine(dataToSubmit);
             setResult(data);
         } catch (err) {
+            console.error("Prediction Error:", err);
             setError("Failed to get prediction. Ensure backend is running.");
         } finally {
             setLoading(false);
@@ -125,15 +140,38 @@ const PredictionWithCreatinine = () => {
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem' }}>
                         <div className="form-group">
                             <label>Occupation</label>
-                            <select name="occupation" value={formData.occupation} onChange={handleChange}>
+                            <select
+                                name="occupation"
+                                value={formData.occupation}
+                                onChange={handleChange}
+                            >
                                 <option value="student">Student</option>
                                 <option value="tyre_worker">Tyre Worker (High Risk)</option>
                                 <option value="mechanic">Mechanic</option>
                                 <option value="painter">Painter</option>
                                 <option value="driver">Driver</option>
                                 <option value="office_worker">Office Worker</option>
-                                <option value="other">Other</option>
+                                <option value="construction_worker">Construction Worker</option>
+                                <option value="factory_worker">Factory Worker</option>
+                                <option value="farmer">Farmer</option>
+                                <option value="teacher">Teacher</option>
+                                <option value="doctor">Healthcare Professional</option>
+                                <option value="engineer">Engineer</option>
+                                <option value="sales">Sales Professional</option>
+                                <option value="other">Other (Specify)</option>
                             </select>
+
+                            {formData.occupation === 'other' && (
+                                <input
+                                    type="text"
+                                    name="customOccupation"
+                                    value={formData.customOccupation || ''}
+                                    onChange={handleChange}
+                                    placeholder="Enter your occupation"
+                                    style={{ marginTop: '0.5rem', border: '1px solid var(--primary)' }}
+                                    required
+                                />
+                            )}
                         </div>
 
                         <div className="form-group">
@@ -164,17 +202,69 @@ const PredictionWithCreatinine = () => {
                         </div>
                     </div>
 
-                    {/* Row 3: Distance (full width) */}
-                    <div className="form-group">
-                        <label>Distance to Main Road (Meters)</label>
-                        <input
-                            type="number"
-                            name="distance_to_main_road"
-                            value={formData.distance_to_main_road}
-                            onChange={handleChange}
-                            placeholder="Meters"
-                        />
+                    {/* Row 3: Clinical Markers */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem' }}>
+                        <div className="form-group">
+                            <label>Serum IgE (IU/mL)</label>
+                            <input
+                                type="number"
+                                name="ige_level"
+                                value={formData.ige_level || ''}
+                                onChange={handleChange}
+                                placeholder="Normal: 0-100"
+                                min="0"
+                            />
+                        </div>
+                        <div className="form-group">
+                            <label>Eosinophil % (CBC)</label>
+                            <input
+                                type="number"
+                                name="eosinophil_percentage"
+                                value={formData.eosinophil_percentage || ''}
+                                onChange={handleChange}
+                                placeholder="Normal: 1-5%"
+                                step="0.1"
+                                min="0"
+                                max="100"
+                            />
+                        </div>
+                        <div className="form-group">
+                            <label>FEV1 (% Predicted)</label>
+                            <input
+                                type="number"
+                                name="fev1"
+                                value={formData.fev1 || ''}
+                                onChange={handleChange}
+                                placeholder="Normal: ≥ 80%"
+                                min="0"
+                                max="150"
+                            />
+                        </div>
                     </div>
+
+                    {/* Row 4: Patch Test & Distance */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                        <div className="form-group">
+                            <label>Skin Patch Test Result</label>
+                            <select name="patch_test" value={formData.patch_test || '0'} onChange={handleChange}>
+                                <option value="0">Negative (Normal)</option>
+                                <option value="1">Weak Positive (+)</option>
+                                <option value="2">Strong Positive (++)</option>
+                            </select>
+                        </div>
+                        <div className="form-group">
+                            <label>Distance to Main Road (Meters)</label>
+                            <input
+                                type="number"
+                                name="distance_to_main_road"
+                                value={formData.distance_to_main_road}
+                                onChange={handleChange}
+                                placeholder="Meters"
+                            />
+                        </div>
+                    </div>
+
+
 
                     <div style={{ display: 'flex', gap: '2rem', marginBottom: '1.5rem' }}>
                         <div className="checkbox-group">

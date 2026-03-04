@@ -22,7 +22,15 @@ def preprocess_input(data):
             "distance_to_main_road": float(data.get("distance_to_main_road", 0.0)),
             "two_wheeler_use": bool(data.get("two_wheeler_use", False)),
             "smoker": bool(data.get("smoker", False)),
-            "creatinine": float(data.get("creatinine", 1.0))  # Add creatinine support
+            "creatinine": float(data.get("creatinine") or 1.0),
+            
+            # New Clinical Features for v2 Model
+            "respiratory_symptoms": bool(data.get("respiratory_symptoms", False)),
+            "skin_allergy_history": bool(data.get("skin_allergy_history", False)),
+            "ige_level": float(data.get("ige_level") or 0.0),
+            "eosinophil_percentage": float(data.get("eosinophil_percentage") or 0.0),
+            "fev1": float(data.get("fev1") or 0.0), 
+            "patch_test": data.get("patch_test", "0") # Keep as string or int depending on usage, predictor handles both? predictor does int(data.get(...))
         }
         
         return processed_data
