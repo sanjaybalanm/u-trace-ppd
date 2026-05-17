@@ -7,6 +7,7 @@ from model.risk_classifier import classify_risk
 from model.creatinine_predictor import CreatininePPDPredictor
 import sqlite3
 import json
+import os
 from datetime import datetime
 from werkzeug.security import generate_password_hash, check_password_hash
 import io
@@ -277,4 +278,5 @@ def chat():
 
 if __name__ == '__main__':
     print("Starting PPD Risk Prediction Backend...")
-    app.run(debug=True, port=5001)
+    port = int(os.environ.get('PORT', 5001))
+    app.run(debug=False, host='0.0.0.0', port=port)
